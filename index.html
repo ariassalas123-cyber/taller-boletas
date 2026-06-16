@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boletas — Zentrix CR</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #ffffff; --bg-secondary: #f5f5f3; --bg-tertiary: #eeede9;
+      --text: #1a1a1a; --text-secondary: #6b6b6b; --text-tertiary: #a0a0a0;
+      --border: rgba(0,0,0,0.12); --border-md: rgba(0,0,0,0.22);
+      --radius-md: 8px; --radius-lg: 12px; --accent: #1a1a1a; --accent-text: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1c; --bg-secondary: #262626; --bg-tertiary: #2e2e2e;
+        --text: #f0f0f0; --text-secondary: #a0a0a0; --text-tertiary: #666;
+        --border: rgba(255,255,255,0.1); --border-md: rgba(255,255,255,0.2);
+        --accent: #f0f0f0; --accent-text: #1c1c1c;
+      }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-tertiary); color: var(--text); min-height: 100vh; }
+    header { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; gap: 12px; height: 56px; position: sticky; top: 0; z-index: 50; }
+    header h1 { font-size: 16px; font-weight: 500; }
+    header .subtitle { font-size: 13px; color: var(--text-tertiary); margin-left: auto; }
+    .container { max-width: 820px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+    .tabs { display: flex; gap: 4px; background: var(--bg-secondary); border-radius: var(--radius-lg); padding: 4px; margin-bottom: 1.25rem; }
+    .tab { flex: 1; padding: 8px 12px; font-size: 13px; cursor: pointer; border: none; background: none; color: var(--text-secondary); border-radius: var(--radius-md); font-family: inherit; transition: background .15s, color .15s; }
+    .tab.active { background: var(--bg); color: var(--text); font-weight: 500; border: 0.5px solid var(--border); }
+    .view { display: none; } .view.active { display: block; }
+    .section-title { font-size: 11px; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .6px; margin: 1.25rem 0 .75rem; padding-bottom: 6px; border-bottom: 0.5px solid var(--border); }
+    .section-title:first-child { margin-top: 0; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0.75rem; }
+    .form-grid.full { grid-template-columns: 1fr; }
+    .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 560px) { .form-grid, .form-grid.three { grid-template-columns: 1fr; } }
+    label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; font-family: inherit; font-size: 14px; color: var(--text); background: var(--bg); border: 0.5px solid var(--border-md); border-radius: var(--radius-md); padding: 8px 10px; outline: none; transition: border-color .15s; }
+    input:focus, select:focus, textarea:focus { border-color: var(--text-secondary); }
+    textarea { resize: vertical; min-height: 80px; }
+    .btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; flex-wrap: wrap; }
+    .btn-primary { background: var(--accent); color: var(--accent-text); border: none; padding: 9px 20px; border-radius: var(--radius-md); font-size: 14px; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary { background: none; border: 0.5px solid var(--border-md); color: var(--text-secondary); padding: 9px 16px; border-radius: var(--radius-md); font-size: 14px; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+    .btn-danger { background: none; border: 0.5px solid #f09595; color: #A32D2D; padding: 7px 14px; border-radius: var(--radius-md); font-size: 13px; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 5px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 500; }
+    .badge-Recibido           { background: #E6F1FB; color: #0C447C; }
+    .badge-En-diagnostico     { background: #FAEEDA; color: #633806; }
+    .badge-En-reparacion      { background: #EAF3DE; color: #27500A; }
+    .badge-Esperando-repuesto { background: #FBEAF0; color: #72243E; }
+    .badge-Resuelto           { background: #EEEDFE; color: #3C3489; }
+    .badge-Entregado          { background: #F1EFE8; color: #444441; }
+    .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+    .filter-btn { padding: 5px 12px; border-radius: 100px; border: 0.5px solid var(--border-md); font-size: 12px; cursor: pointer; background: none; color: var(--text-secondary); font-family: inherit; white-space: nowrap; }
+    .filter-btn.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .boleta-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 8px; cursor: pointer; transition: border-color .15s; }
+    .boleta-card:hover { border-color: var(--border-md); }
+    .boleta-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; gap: 8px; }
+    .boleta-num { font-weight: 500; font-size: 14px; }
+    .boleta-meta, .boleta-equipo { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+    .empty { text-align: center; padding: 3rem 0; color: var(--text-tertiary); font-size: 14px; }
+    .empty i { font-size: 36px; display: block; margin-bottom: 8px; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; align-items: flex-start; justify-content: center; padding: 30px 1rem; overflow-y: auto; }
+    .overlay.open { display: flex; }
+    .detail-card { background: var(--bg); border-radius: var(--radius-lg); border: 0.5px solid var(--border); width: 100%; max-width: 580px; padding: 1.5rem; margin: auto; }
+    .detail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .close-btn { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--text-secondary); padding: 4px; }
+    .detail-row { display: flex; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--border); font-size: 14px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: var(--text-secondary); min-width: 140px; font-size: 13px; flex-shrink: 0; }
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 8px 0 1rem; }
+    @media (max-width: 480px) { .status-grid { grid-template-columns: 1fr 1fr; } }
+    .status-opt { padding: 7px 10px; border-radius: var(--radius-md); border: 0.5px solid var(--border-md); font-size: 12px; cursor: pointer; background: none; font-family: inherit; color: var(--text-secondary); text-align: center; transition: all .15s; }
+    .status-opt.sel[data-s="Recibido"]            { background:#E6F1FB; color:#0C447C; border-color:#85B7EB; }
+    .status-opt.sel[data-s="En diagnóstico"]      { background:#FAEEDA; color:#633806; border-color:#FAC775; }
+    .status-opt.sel[data-s="En reparación"]       { background:#EAF3DE; color:#27500A; border-color:#97C459; }
+    .status-opt.sel[data-s="Esperando repuesto"]  { background:#FBEAF0; color:#72243E; border-color:#ED93B1; }
+    .status-opt.sel[data-s="Resuelto"]            { background:#EEEDFE; color:#3C3489; border-color:#AFA9EC; }
+    .status-opt.sel[data-s="Entregado"]           { background:#F1EFE8; color:#444441; border-color:#B4B2A9; }
+    .sync-info { font-size: 12px; color: var(--text-tertiary); margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--accent-text); padding: 10px 20px; border-radius: var(--radius-md); font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 300; white-space: nowrap; }
+    .toast.show { opacity: 1; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(128,128,128,.3); border-top-color: var(--text); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Dashboard */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+    .stat-card { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 1rem; }
+    .stat-label { font-size: 12px; color: var(--text-tertiary); margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 500; }
+    .stat-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .date-filter { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+    .date-filter label { font-size: 13px; color: var(--text-secondary); margin-bottom: 0; }
+    .date-filter input { width: auto; font-size: 13px; padding: 6px 8px; }
+    .bar-chart { margin-top: 1rem; }
+    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+    .bar-label { min-width: 90px; color: var(--text-secondary); text-align: right; font-size: 11px; }
+    .bar-track { flex: 1; background: var(--bg-secondary); border-radius: 4px; height: 20px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s; min-width: 2px; }
+    .bar-val { min-width: 70px; font-size: 11px; color: var(--text-secondary); }
+
+    /* Edit field inline */
+    .edit-field { width: 100%; font-family: inherit; font-size: 14px; color: var(--text); background: var(--bg-secondary); border: 0.5px solid var(--border-md); border-radius: var(--radius-md); padding: 6px 8px; }
+    .edit-actions { display: flex; gap: 6px; margin-top: 1rem; flex-wrap: wrap; }
+
+    /* Historial */
+    .historial-item { display:flex; gap:8px; padding:6px 0; border-bottom:0.5px solid var(--border); font-size:13px; align-items:flex-start; }
+    .historial-item:last-child { border-bottom:none; }
+    .historial-dot { width:8px; height:8px; border-radius:50%; background:var(--text-tertiary); margin-top:4px; flex-shrink:0; }
+    .historial-dot.active { background:var(--accent); }
+    .historial-fecha { color:var(--text-tertiary); font-size:11px; min-width:110px; }
+    .foto-preview { width:100%; max-height:180px; object-fit:cover; border-radius:var(--radius-md); margin-top:6px; cursor:pointer; }
+    .foto-thumb { width:60px; height:60px; object-fit:cover; border-radius:var(--radius-md); cursor:pointer; border:0.5px solid var(--border); }
+
+    /* Login */
+    #login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-tertiary); }
+    .login-card { background:var(--bg); border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:2rem 2.5rem; width:100%; max-width:360px; }
+    .login-logo { text-align:center; margin-bottom:1.5rem; }
+    .login-logo i { font-size:36px; color:var(--text-secondary); }
+    .login-logo h2 { font-size:18px; font-weight:500; margin-top:8px; }
+    .login-logo p { font-size:13px; color:var(--text-tertiary); margin-top:4px; }
+    .login-field { margin-bottom:12px; }
+    .login-error { color:#A32D2D; font-size:13px; margin-bottom:10px; display:none; text-align:center; }
+    #app-screen { display:none; }
+    .logout-btn { background:none; border:0.5px solid var(--border-md); color:var(--text-secondary); padding:5px 12px; border-radius:var(--radius-md); font-size:13px; cursor:pointer; font-family:inherit; margin-left:8px; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <i class="ti ti-tools" aria-hidden="true"></i>
+      <h2>Zentrix CR</h2>
+      <p>Sistema de boletas</p>
+    </div>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="l-user" placeholder="Ingresá tu usuario" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="l-pass" placeholder="Ingresá tu contraseña" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos</div>
+    <button class="btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="login()">
+      <i class="ti ti-login" aria-hidden="true"></i> Ingresar
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+<header>
+  <i class="ti ti-tools" style="font-size:20px;flex-shrink:0" aria-hidden="true"></i>
+  <h1 style="flex-shrink:0">Zentrix CR</h1>
+  <div style="flex:1;max-width:300px;margin:0 12px;position:relative">
+    <i class="ti ti-search" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);font-size:14px" aria-hidden="true"></i>
+    <input type="text" id="global-search" placeholder="Buscar boleta..." oninput="busquedaGlobal()"
+      style="width:100%;padding:6px 8px 6px 28px;font-size:13px;border-radius:var(--radius-md);border:0.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text);font-family:inherit">
+  </div>
+  <span class="subtitle" id="header-date" style="flex-shrink:0"></span>
+  <button class="logout-btn" onclick="abrirConfiguracion()" style="margin-right:4px"><i class="ti ti-settings" aria-hidden="true"></i></button>
+  <button class="logout-btn" onclick="logout()"><i class="ti ti-logout" aria-hidden="true"></i> Salir</button>
+</header>
+<div id="global-results" style="display:none;position:fixed;top:56px;left:50%;transform:translateX(-50%);width:min(500px,95vw);background:var(--bg);border:0.5px solid var(--border-md);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:150;max-height:400px;overflow-y:auto;padding:8px"></div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('nueva',this)"><i class="ti ti-file-plus" aria-hidden="true"></i> Nueva</button>
+    <button class="tab" onclick="showTab('lista',this)"><i class="ti ti-list" aria-hidden="true"></i> Boletas (<span id="count">—</span>)</button>
+    <button class="tab" onclick="showTab('dashboard',this)"><i class="ti ti-chart-bar" aria-hidden="true"></i> Dashboard</button>
+  </div>
+
+  <!-- NUEVA BOLETA -->
+  <div class="view active" id="view-nueva">
+    <div class="card">
+      <div class="section-title">Datos del cliente</div>
+      <div class="form-grid">
+        <div><label>Nombre completo *</label><input type="text" id="f-nombre" placeholder="Ej: Juan Pérez"></div>
+        <div><label>Teléfono *</label><input type="text" id="f-tel" placeholder="Ej: 8888-8888"></div>
+      </div>
+      <div class="form-grid full">
+        <div><label>Correo electrónico</label><input type="email" id="f-correo" placeholder="correo@ejemplo.com"></div>
+      </div>
+      <div class="section-title">Equipo</div>
+      <div class="form-grid">
+        <div><label>Marca *</label><input type="text" id="f-marca" placeholder="Ej: HP, Dell, Lenovo"></div>
+        <div><label>Modelo</label><input type="text" id="f-modelo" placeholder="Ej: Pavilion 15"></div>
+      </div>
+      <div class="form-grid">
+        <div><label>Número de serie</label><input type="text" id="f-serie" placeholder="S/N del equipo"></div>
+        <div><label>Tipo de equipo</label>
+          <select id="f-tipo">
+            <option value="">Seleccionar...</option>
+            <option>Laptop</option><option>Desktop / Torre</option><option>All-in-One</option><option>Tablet</option><option>Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="section-title">Diagnóstico y cobro</div>
+      <div class="form-grid full">
+        <div><label>Problema reportado por el cliente *</label>
+          <textarea id="f-problema" placeholder="Describe el problema que reporta el cliente..."></textarea>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div><label>Estado inicial</label>
+          <select id="f-estado">
+            <option value="Recibido">Recibido</option>
+            <option value="En diagnóstico">En diagnóstico</option>
+            <option value="En reparación">En reparación</option>
+            <option value="Esperando repuesto">Esperando repuesto</option>
+            <option value="Resuelto">Resuelto</option>
+            <option value="Entregado">Entregado</option>
+          </select>
+        </div>
+        <div><label>Presupuesto / Costo (₡)</label><input type="number" id="f-costo" placeholder="0" min="0"></div>
+      </div>
+      <div class="section-title">Garantía, notas y foto</div>
+      <div class="form-grid">
+        <div><label>Días de garantía</label><input type="number" id="f-garantia" placeholder="Ej: 30" min="0"></div>
+        <div><label>Notas internas (no aparece en PDF)</label><input type="text" id="f-notas" placeholder="Solo visible para el técnico"></div>
+      </div>
+      <div class="form-grid full">
+        <div><label>Foto del equipo (opcional)</label><input type="file" id="f-foto" accept="image/*" style="font-size:13px"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-guardar" onclick="guardarBoleta()">
+          <i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar boleta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTA -->
+  <div class="view" id="view-lista">
+    <div class="sync-info">
+      <i class="ti ti-refresh" aria-hidden="true"></i>
+      <span id="sync-txt">Cargando...</span>
+      <button class="btn-secondary" style="margin-left:auto;padding:5px 10px;font-size:12px" onclick="cargarBoletas()">
+        <i class="ti ti-refresh" aria-hidden="true"></i> Actualizar
+      </button>
+    </div>
+    <div style="position:relative;margin-bottom:10px">
+      <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);font-size:15px" aria-hidden="true"></i>
+      <input type="text" id="search-input" placeholder="Buscar por nombre, N° boleta o serie..." oninput="buscar()"
+        style="padding:9px 10px 9px 34px;font-size:14px;width:100%;border-radius:var(--radius-md);border:0.5px solid var(--border-md);background:var(--bg);color:var(--text);font-family:inherit">
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filtrar(this,'')">Todas</button>
+      <button class="filter-btn" onclick="filtrar(this,'Recibido')">Recibido</button>
+      <button class="filter-btn" onclick="filtrar(this,'En diagnóstico')">En diagnóstico</button>
+      <button class="filter-btn" onclick="filtrar(this,'En reparación')">En reparación</button>
+      <button class="filter-btn" onclick="filtrar(this,'Esperando repuesto')">Esp. repuesto</button>
+      <button class="filter-btn" onclick="filtrar(this,'Resuelto')">Resuelto</button>
+      <button class="filter-btn" onclick="filtrar(this,'Entregado')">Entregado</button>
+    </div>
+    <div id="lista-container"><div class="empty"><i class="ti ti-loader"></i>Cargando boletas...</div></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="view" id="view-dashboard">
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Filtro por fechas</div>
+      <div class="date-filter">
+        <label>Desde</label>
+        <input type="date" id="d-desde">
+        <label>Hasta</label>
+        <input type="date" id="d-hasta">
+        <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="renderDashboard()">
+          <i class="ti ti-filter" aria-hidden="true"></i> Aplicar
+        </button>
+        <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="resetFiltro()">Todo</button>
+      </div>
+      <div class="stats-grid" id="dash-stats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem" id="dash-extra"></div>
+      <div class="section-title">Ingresos por estado</div>
+      <div class="bar-chart" id="dash-bars"></div>
+      <div class="section-title">⚠️ Boletas sin movimiento (+5 días)</div>
+      <div id="dash-vencidas"></div>
+      <div class="section-title">Boletas recientes en rango</div>
+      <div id="dash-recientes"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE / EDICIÓN -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)cerrarDetalle()">
+  <div class="detail-card" id="detail-card"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MODAL CONFIGURACIÓN -->
+<div id="config-overlay" onclick="if(event.target===this)cerrarConfiguracion()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border);width:100%;max-width:480px;padding:1.5rem;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <strong>Configuración</strong>
+      <button class="close-btn" onclick="cerrarConfiguracion()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="section-title" style="margin-top:0">Nombre del taller</div>
+    <input id="cfg-nombre" class="edit-field" value="Zentrix CR" placeholder="Nombre del taller">
+
+    <div class="section-title">Contacto</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>Correo</label><input id="cfg-correo" class="edit-field" value="soporte@zentrixcr.com"></div>
+      <div><label>Teléfono</label><input id="cfg-tel" class="edit-field" value="7239-0652"></div>
+    </div>
+
+    <div class="section-title">Cambiar contraseña</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>Nueva contraseña</label><input id="cfg-pass1" class="edit-field" type="password" placeholder="Nueva contraseña"></div>
+      <div><label>Confirmar</label><input id="cfg-pass2" class="edit-field" type="password" placeholder="Confirmar"></div>
+    </div>
+
+    <div class="section-title">Mensaje de WhatsApp</div>
+    <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:6px">Variables: {nombre} {marca} {modelo} {id} {estado} {diagnostico} {costo}</div>
+    <textarea id="cfg-wa" class="edit-field" rows="5" style="font-size:12px"></textarea>
+
+    <div class="section-title">Exportar datos</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-secondary" onclick="exportarExcel()"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> Exportar a Excel</button>
+      <button class="btn-secondary" onclick="exportarCSV()"><i class="ti ti-file-text" aria-hidden="true"></i> Exportar CSV</button>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
+      <button class="btn-secondary" onclick="cerrarConfiguracion()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarConfiguracion()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FOTO -->
+<div id="foto-modal" onclick="cerrarFoto()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;align-items:center;justify-content:center;cursor:zoom-out">
+  <img id="foto-modal-img" src="" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px">
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbwXuWVqCCTep7f0cdFxXkxUiyk-Kkz1sapiypI0D8Nfdpo4HpSgrNhujhPZvwi25Q2Ouw/exec";
+const ESTADOS = ["Recibido","En diagnóstico","En reparación","Esperando repuesto","Resuelto","Entregado"];
+let boletas = [];
+let filtroActual = '';
+let detailId = null;
+let editMode = false;
+
+// ID ZCR-XXXX
+function nextId() {
+  if (!boletas.length) return 'ZCR-0001';
+  const nums = boletas.map(b => {
+    const m = String(b.id).match(/(\d+)$/);
+    return m ? parseInt(m[1]) : 0;
+  });
+  return 'ZCR-' + String(Math.max(...nums) + 1).padStart(4,'0');
+}
+
+document.getElementById('header-date').textContent =
+  new Date().toLocaleDateString('es-CR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+// ── CARGAR ────────────────────────────────────────────────
+async function cargarBoletas() {
+  document.getElementById('sync-txt').textContent = 'Actualizando...';
+  try {
+    const r = await fetch(API + "?t=" + Date.now());
+    const data = await r.json();
+    boletas = data.map(b => {
+      let fecha = b["Fecha"] || '';
+      // Si viene como fecha ISO de Sheets, convertirla
+      if(fecha && fecha.toString().includes('T')) {
+        const d = new Date(fecha);
+        fecha = d.toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'});
+      }
+      return {
+        id: b["ID"], fecha, nombre: b["Nombre"], tel: b["Teléfono"],
+        correo: b["Correo"], marca: b["Marca"], modelo: b["Modelo"],
+        serie: b["Serie"], tipo: b["Tipo"], problema: b["Problema"],
+        diagnostico: b["Diagnostico"] || '', estado: b["Estado"], costo: b["Costo"],
+        garantia: b["Garantia"] || '', notas: b["Notas"] || '',
+        fechaRecibido: b["FechaRecibido"] || fecha,
+        fechaEntrega: b["FechaEntrega"] || '',
+        historial: b["Historial"] || '',
+        foto: b["Foto"] || ''
+      };
+    });
+    document.getElementById('count').textContent = boletas.length;
+    document.getElementById('sync-txt').textContent = 'Sincronizado · ' + boletas.length + ' boleta' + (boletas.length!==1?'s':'');
+    renderLista();
+  } catch(e) {
+    document.getElementById('sync-txt').textContent = 'Error al conectar';
+    document.getElementById('lista-container').innerHTML =
+      '<div class="empty"><i class="ti ti-wifi-off"></i>No se pudo conectar. Revisá tu conexión.</div>';
+  }
+}
+
+// ── GUARDAR NUEVA ─────────────────────────────────────────
+async function getFotoNueva(){
+  const input = document.getElementById('f-foto');
+  if(!input||!input.files||!input.files[0]) return '';
+  try {
+    return await comprimirImagen(input.files[0], 800, 800, 0.6);
+  } catch(e){ return ''; }
+}
+
+async function guardarBoleta() {
+  const n=v('f-nombre'),tel=v('f-tel'),prob=v('f-problema'),marca=v('f-marca');
+  if(!n||!tel||!prob||!marca){toast('Completá los campos obligatorios (*)');return;}
+  const btn=document.getElementById('btn-guardar');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Guardando...';
+  const b = {
+    id: nextId(),
+    fecha: new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'}),
+    fechaRecibido: new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'}),
+    nombre:n, tel, correo:v('f-correo'), marca, modelo:v('f-modelo'),
+    serie:v('f-serie'), tipo:v('f-tipo'), problema:prob, diagnostico:'',
+    estado:document.getElementById('f-estado').value, costo:v('f-costo'),
+    garantia:v('f-garantia'), notas:v('f-notas'),
+    historial: JSON.stringify([{estado:document.getElementById('f-estado').value, fecha:new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'}), nota:'Boleta creada'}]),
+    foto: ''
+  };
+  try {
+    const r = await fetch(API + "?action=save&data=" + encodeURIComponent(JSON.stringify(b)));
+    const res = await r.json();
+    if(res.ok){
+      boletas.push(b);
+      document.getElementById('count').textContent=boletas.length;
+      // Subir foto por separado si hay una seleccionada
+      const fotoInput = document.getElementById('f-foto');
+      if(fotoInput && fotoInput.files && fotoInput.files[0]){
+        toast('Guardando foto...');
+        try {
+          const fotoBase64 = await comprimirImagen(fotoInput.files[0], 800, 800, 0.6);
+          await subirFotoSeparada(b.id, fotoBase64);
+        } catch(fe){ console.error('Error foto:', fe); }
+      }
+      limpiarForm(); toast('✓ Boleta '+b.id+' guardada');
+    } else { toast('Error: '+res.error); }
+  } catch(e) { toast('Error de conexión. Intentá de nuevo.'); }
+  btn.disabled=false; btn.innerHTML='<i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar boleta';
+}
+
+// ── ACTUALIZAR BOLETA ─────────────────────────────────────
+async function actualizarBoleta(id, campos) {
+  const b = boletas.find(x=>x.id===id);
+  if(!b) return;
+  Object.assign(b, campos);
+  try {
+    const r = await fetch(API + "?action=update&data=" + encodeURIComponent(JSON.stringify(b)));
+    const res = await r.json();
+    if(res.ok){
+      // Si el script devolvió un link de Drive para la foto, usarlo
+      if(res.foto && res.foto.startsWith('http')) b.foto = res.foto;
+      toast('✓ Boleta '+id+' actualizada');
+      renderLista();
+    }
+    else { toast('Error al actualizar: '+(res.error||'desconocido')); }
+  } catch(e) { toast('Error de conexión.'); }
+}
+
+// ── ELIMINAR ──────────────────────────────────────────────
+async function eliminarBoleta(id) {
+  if(!confirm('¿Eliminár la boleta '+id+'? Esta acción no se puede deshacer.')) return;
+  try {
+    const r = await fetch(API + "?action=delete&id=" + encodeURIComponent(id));
+    const res = await r.json();
+    if(res.ok){
+      boletas = boletas.filter(x=>x.id!==id);
+      document.getElementById('count').textContent=boletas.length;
+      cerrarDetalle(); renderLista(); toast('Boleta '+id+' eliminada');
+    } else { toast('Error al eliminar'); }
+  } catch(e) { toast('Error de conexión.'); }
+}
+
+function v(id){return document.getElementById(id).value.trim();}
+
+function limpiarForm(){
+  ['f-nombre','f-tel','f-correo','f-marca','f-modelo','f-serie','f-costo','f-problema','f-garantia','f-notas','f-foto']
+    .forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-tipo').selectedIndex=0;
+  document.getElementById('f-estado').selectedIndex=0;
+}
+
+// ── TABS ──────────────────────────────────────────────────
+function showTab(t,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-'+t).classList.add('active');
+  if(t==='lista') cargarBoletas();
+  if(t==='dashboard'){ cargarBoletas().then(()=>renderDashboard()); renderDashboard(); }
+}
+
+// ── FILTRO ────────────────────────────────────────────────
+function filtrar(btn,f){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); filtroActual=f; renderLista();
+}
+
+// ── BADGE ─────────────────────────────────────────────────
+function badgeClass(s){
+  const m={'Recibido':'Recibido','En diagnóstico':'En-diagnostico','En reparación':'En-reparacion','Esperando repuesto':'Esperando-repuesto','Resuelto':'Resuelto','Entregado':'Entregado'};
+  return 'badge badge-'+(m[s]||'Recibido');
+}
+
+// ── RENDER LISTA ──────────────────────────────────────────
+function buscar(){
+  if(!boletas.length){ cargarBoletas(); return; }
+  renderLista();
+}
+
+function renderLista(){
+  const c=document.getElementById('lista-container');
+  const q=(document.getElementById('search-input')?.value||'').toLowerCase().trim();
+  let list=filtroActual?boletas.filter(b=>b.estado===filtroActual):[...boletas];
+  if(q){
+    list=list.filter(b=>
+      String(b.nombre||'').toLowerCase().includes(q)||
+      String(b.id||'').toLowerCase().includes(q)||
+      String(b.serie||'').toLowerCase().includes(q)||
+      String(b.tel||'').toLowerCase().includes(q)||
+      String(b.marca||'').toLowerCase().includes(q)
+    );
+  }
+  if(!list.length){
+    c.innerHTML='<div class="empty"><i class="ti ti-clipboard-off"></i>'+(boletas.length?'No hay boletas con ese estado':'Aún no hay boletas')+'</div>';
+    return;
+  }
+  c.innerHTML=list.slice().reverse().map(b=>`
+    <div class="boleta-card" onclick="abrirDetalle('${b.id}')">
+      <div class="boleta-header">
+        <span class="boleta-num"><i class="ti ti-file-text" style="font-size:14px;vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>${b.id}</span>
+        <span class="${badgeClass(b.estado)}">${b.estado||'Recibido'}</span>
+      </div>
+      <div class="boleta-meta"><i class="ti ti-user" style="font-size:13px;vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>${b.nombre} · ${b.tel}</div>
+      <div class="boleta-equipo"><i class="ti ti-device-laptop" style="font-size:13px;vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>${b.marca}${b.modelo?' '+b.modelo:''} ${b.tipo?'· '+b.tipo:''} · <span style="color:var(--text-tertiary)">${b.fecha}</span>${b.costo?` · <strong>₡${Number(b.costo).toLocaleString('es-CR')}</strong>`:''}</div>
+    </div>
+  `).join('');
+}
+
+// ── DETALLE / EDICIÓN ─────────────────────────────────────
+function abrirDetalle(id){
+  const b=boletas.find(x=>x.id===id);
+  if(!b)return;
+  detailId=id; editMode=false;
+  renderDetalle(b);
+  document.getElementById('overlay').classList.add('open');
+}
+
+function renderDetalle(b){
+  document.getElementById('detail-card').innerHTML=`
+    <div class="detail-head">
+      <div><strong>${b.id}</strong><span style="margin-left:10px;font-size:13px;color:var(--text-tertiary)">${b.fecha}</span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="toggleEdit()"><i class="ti ti-edit" aria-hidden="true"></i> Editar</button>
+        <button class="close-btn" onclick="cerrarDetalle()" aria-label="Cerrar"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+
+    <div id="detalle-body">
+      <div class="section-title" style="margin-top:0">Cliente</div>
+      <div class="detail-row"><span class="detail-label">Nombre</span><span>${b.nombre}</span></div>
+      <div class="detail-row"><span class="detail-label">Teléfono</span><span>${b.tel}</span></div>
+      ${b.correo?`<div class="detail-row"><span class="detail-label">Correo</span><span>${b.correo}</span></div>`:''}
+
+      <div class="section-title">Equipo</div>
+      <div class="detail-row"><span class="detail-label">Marca / Modelo</span><span>${b.marca} ${b.modelo||''}</span></div>
+      ${b.tipo?`<div class="detail-row"><span class="detail-label">Tipo</span><span>${b.tipo}</span></div>`:''}
+      ${b.serie?`<div class="detail-row"><span class="detail-label">N° de serie</span><span>${b.serie}</span></div>`:''}
+
+      <div class="section-title">Problema reportado</div>
+      <div style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:.75rem">${b.problema}</div>
+
+      <div class="section-title">Diagnóstico / Trabajo realizado</div>
+      <div style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:.75rem">${b.diagnostico||'<em style="color:var(--text-tertiary)">Sin diagnóstico aún</em>'}</div>
+
+      ${b.costo?`<div class="detail-row"><span class="detail-label">Costo</span><span style="font-weight:500">₡${Number(b.costo).toLocaleString('es-CR')}</span></div>`:''}
+
+      <div class="section-title">Estado</div>
+      <div class="status-grid">
+        ${ESTADOS.map(s=>`<button class="status-opt${b.estado===s?' sel':''}" data-s="${s}" onclick="cambiarEstado('${s}')">${s}</button>`).join('')}
+      </div>
+
+      ${b.garantia ? `<div class="detail-row"><span class="detail-label">Garantía</span><span>${b.garantia} días${b.fechaEntrega ? ' · vence '+calcVencimiento(b.fechaEntrega, b.garantia) : ''}</span></div>` : ''}
+      ${b.notas ? `<div style="margin-top:.5rem;padding:8px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);font-size:13px;color:var(--text-secondary)"><i class="ti ti-lock" style="font-size:12px;margin-right:4px" aria-hidden="true"></i><strong>Nota interna:</strong> ${b.notas}</div>` : ''}
+      <div style="margin-top:.5rem;font-size:12px;color:var(--text-tertiary)"><i class="ti ti-clock" aria-hidden="true"></i> Recibido: ${b.fechaRecibido||b.fecha} ${b.estado==='Entregado'?'· Entregado: '+(b.fechaEntrega||'—'):'· Días en taller: '+diasEnTaller(b.fechaRecibido||b.fecha)}</div>
+
+      <div class="section-title">Foto del equipo</div>
+      ${b.foto ? `<img src="${b.foto}" class="foto-preview" onclick="verFoto('${b.id}')"><br>` : '<div style="font-size:13px;color:var(--text-tertiary);padding:4px 0">Sin foto</div>'}
+      <button class="btn-secondary" style="margin-top:6px;font-size:12px;padding:5px 10px" onclick="subirFoto('${b.id}')"><i class="ti ti-camera" aria-hidden="true"></i> ${b.foto?'Cambiar foto':'Agregar foto'}</button>
+
+      <div class="section-title">Historial de estados</div>
+      <div id="historial-list">${renderHistorialHTML(parseHistorial(b.historial))}</div>
+
+      <div class="edit-actions">
+        <button class="btn-primary" onclick="generarPDF('${b.id}')"><i class="ti ti-file-type-pdf" aria-hidden="true"></i> PDF</button>
+        <button class="btn-secondary" onclick="imprimirBoleta('${b.id}')"><i class="ti ti-printer" aria-hidden="true"></i> Imprimir</button>
+        <button class="btn-primary" style="background:#25D366" onclick="enviarWhatsApp('${b.id}')"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp</button>
+        <button class="btn-danger" onclick="eliminarBoleta('${b.id}')"><i class="ti ti-trash" aria-hidden="true"></i> Eliminar</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEdicion(b){
+  document.getElementById('detalle-body').innerHTML=`
+    <div class="section-title" style="margin-top:0">Cliente</div>
+    <div class="form-grid">
+      <div><label>Nombre *</label><input class="edit-field" id="e-nombre" value="${b.nombre}"></div>
+      <div><label>Teléfono *</label><input class="edit-field" id="e-tel" value="${b.tel}"></div>
+    </div>
+    <div class="form-grid full">
+      <div><label>Correo</label><input class="edit-field" id="e-correo" value="${b.correo||''}"></div>
+    </div>
+    <div class="section-title">Equipo</div>
+    <div class="form-grid">
+      <div><label>Marca *</label><input class="edit-field" id="e-marca" value="${b.marca}"></div>
+      <div><label>Modelo</label><input class="edit-field" id="e-modelo" value="${b.modelo||''}"></div>
+    </div>
+    <div class="form-grid">
+      <div><label>N° de serie</label><input class="edit-field" id="e-serie" value="${b.serie||''}"></div>
+      <div><label>Tipo</label>
+        <select class="edit-field" id="e-tipo">
+          ${['','Laptop','Desktop / Torre','All-in-One','Tablet','Otro'].map(t=>`<option${b.tipo===t?' selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="section-title">Problema y diagnóstico</div>
+    <div class="form-grid full">
+      <div><label>Problema reportado</label><textarea class="edit-field" id="e-problema" rows="3">${b.problema}</textarea></div>
+    </div>
+    <div class="form-grid full">
+      <div><label>Diagnóstico / Trabajo realizado</label><textarea class="edit-field" id="e-diagnostico" rows="3" placeholder="Describí lo que hiciste...">${b.diagnostico||''}</textarea></div>
+    </div>
+    <div class="form-grid">
+      <div><label>Estado</label>
+        <select class="edit-field" id="e-estado">
+          ${ESTADOS.map(s=>`<option${b.estado===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div><label>Costo (₡)</label><input class="edit-field" type="number" id="e-costo" value="${b.costo||''}"></div>
+    </div>
+    <div class="form-grid">
+      <div><label>Días de garantía</label><input class="edit-field" type="number" id="e-garantia" value="${b.garantia||''}" placeholder="Ej: 30"></div>
+      <div><label>Notas internas</label><input class="edit-field" id="e-notas" value="${b.notas||''}" placeholder="Solo visible para el técnico"></div>
+    </div>
+    <div class="edit-actions">
+      <button class="btn-primary" onclick="guardarEdicion('${b.id}')"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar cambios</button>
+      <button class="btn-secondary" onclick="toggleEdit()">Cancelar</button>
+      <button class="btn-danger" onclick="eliminarBoleta('${b.id}')"><i class="ti ti-trash" aria-hidden="true"></i> Eliminar</button>
+    </div>
+  `;
+}
+
+function toggleEdit(){
+  const b=boletas.find(x=>x.id===detailId);
+  if(!b)return;
+  editMode=!editMode;
+  if(editMode) renderEdicion(b); else renderDetalle(b);
+}
+
+async function guardarEdicion(id){
+  const prevEstado = boletas.find(x=>x.id===id)?.estado;
+  const nuevoEstado = document.getElementById('e-estado').value;
+  const campos = {
+    nombre: document.getElementById('e-nombre').value.trim(),
+    tel: document.getElementById('e-tel').value.trim(),
+    correo: document.getElementById('e-correo').value.trim(),
+    marca: document.getElementById('e-marca').value.trim(),
+    modelo: document.getElementById('e-modelo').value.trim(),
+    serie: document.getElementById('e-serie').value.trim(),
+    tipo: document.getElementById('e-tipo').value,
+    problema: document.getElementById('e-problema').value.trim(),
+    diagnostico: document.getElementById('e-diagnostico').value.trim(),
+    estado: nuevoEstado,
+    costo: document.getElementById('e-costo').value.trim(),
+    garantia: document.getElementById('e-garantia').value.trim(),
+    notas: document.getElementById('e-notas').value.trim(),
+    fechaEntrega: nuevoEstado==='Entregado' && prevEstado!=='Entregado'
+      ? new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'})
+      : (boletas.find(x=>x.id===id)?.fechaEntrega||'')
+  };
+  if(!campos.nombre||!campos.tel||!campos.marca){toast('Campos obligatorios vacíos');return;}
+  await actualizarBoleta(id, campos);
+  editMode=false;
+  const b=boletas.find(x=>x.id===id);
+  renderDetalle(b);
+}
+
+function cambiarEstado(s){
+  const b=boletas.find(x=>x.id===detailId);
+  if(!b)return;
+  const hist = parseHistorial(b.historial);
+  hist.push({estado:s, fecha:new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'}), nota:'Estado actualizado'});
+  const extra = {};
+  if(s==='Entregado' && b.estado!=='Entregado'){
+    extra.fechaEntrega = new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'});
+  }
+  actualizarBoleta(detailId, {estado:s, historial:JSON.stringify(hist), ...extra});
+  b.estado=s; b.historial=JSON.stringify(hist);
+  document.querySelectorAll('.status-opt').forEach(btn=>btn.classList.toggle('sel',btn.dataset.s===s));
+  // Refresh historial display
+  const hDiv = document.getElementById('historial-list');
+  if(hDiv) hDiv.innerHTML = renderHistorialHTML(hist);
+}
+
+function cerrarDetalle(){
+  document.getElementById('overlay').classList.remove('open');
+  detailId=null; editMode=false;
+}
+
+// ── PDF ───────────────────────────────────────────────────
+function fmtCosto(val){
+  if(!val||Number(val)===0) return 'Por definir';
+  return Number(val).toLocaleString('es-CR');
+}
+
+function generarPDF(id){
+  const b=boletas.find(x=>x.id===id);
+  if(!b||!window.jspdf){toast('Cargando libreria, intentá de nuevo...');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210, pad=18;
+  let y=0;
+
+  // ── ENCABEZADO ──
+  doc.setFillColor(245,245,245);
+  doc.rect(0,0,W,24,'F');
+  doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+  doc.text('Zentrix CR',W/2,10,{align:'center'});
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(110,110,110);
+  doc.text('Servicio Tecnico Especializado  |  Computadoras  |  Laptops  |  Diagnostico  |  Reparacion',W/2,17,{align:'center'});
+  doc.text('soporte@zentrixcr.com  |  Tel: 7239-0652',W/2,22,{align:'center'});
+  doc.setFillColor(210,210,210); doc.rect(0,24,W,0.4,'F');
+  y=30;
+
+  // ── Orden y fecha ──
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(80,80,80);
+  doc.text('Orden #',W-pad-38,y);
+  doc.text('Fecha',W-pad-38,y+5);
+  doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+  doc.text(String(b.id),W-pad,y,{align:'right'});
+  doc.text(String(b.fecha||''),W-pad,y+5,{align:'right'});
+
+  // ── Datos cliente/equipo ──
+  const campos=[
+    ['Cliente',b.nombre],['Telefono',b.tel],
+    ['Correo',b.correo||'N/A'],['Equipo',b.tipo||'N/A'],
+    ['Marca',b.marca||'N/A'],['Modelo',b.modelo||'N/A'],
+    ['Serie',b.serie||'N/A']
+  ];
+  campos.forEach(([lbl,val])=>{
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(60,60,60);
+    doc.text(lbl,pad,y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+    const lines=doc.splitTextToSize(String(val),90);
+    doc.text(lines,pad+22,y);
+    y+=5*lines.length;
+  });
+
+  y+=3;
+  doc.setFillColor(210,210,210); doc.rect(pad,y,W-2*pad,0.4,'F'); y+=5;
+
+  // ── Problema ──
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+  doc.text('Problema Reportado',W/2,y,{align:'center'}); y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(50,50,50);
+  const pLines=doc.splitTextToSize(b.problema||'No especificado',W-2*pad);
+  doc.text(pLines,pad,y); y+=5*pLines.length+3;
+
+  doc.setFillColor(210,210,210); doc.rect(pad,y,W-2*pad,0.4,'F'); y+=5;
+
+  // ── Diagnostico ──
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+  doc.text('Diagnostico Tecnico',W/2,y,{align:'center'}); y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(50,50,50);
+  const dText = b.diagnostico && b.diagnostico.trim() ? b.diagnostico : 'Pendiente de diagnostico.';
+  const dLines=doc.splitTextToSize(dText,W-2*pad);
+  doc.text(dLines,pad,y); y+=5*dLines.length+4;
+
+  doc.setFillColor(210,210,210); doc.rect(pad,y,W-2*pad,0.4,'F'); y+=5;
+
+  // ── Estado + Total ──
+  const boxH=8;
+  // Estado
+  doc.setFillColor(225,225,225); doc.rect(pad,y,55,boxH,'F');
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(60,60,60);
+  doc.text('Estado',pad+27.5,y+5.5,{align:'center'});
+  doc.setFillColor(238,238,238); doc.rect(pad,y+boxH,55,boxH,'F');
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+  doc.rect(pad,y,55,boxH*2);
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+  doc.text(b.estado||'Recibido',pad+27.5,y+boxH+5.5,{align:'center'});
+
+  // Total
+  const tx=W-pad-65;
+  doc.setFillColor(225,225,225); doc.rect(tx,y,65,boxH,'F');
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(60,60,60);
+  doc.text('Total',tx+32.5,y+5.5,{align:'center'});
+  doc.setFillColor(238,238,238); doc.rect(tx,y+boxH,65,boxH,'F');
+  doc.rect(tx,y,65,boxH*2);
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+  doc.text(fmtCosto(b.costo),tx+32.5,y+boxH+5.5,{align:'center'});
+  y+=boxH*2+6;
+
+  // ── Garantía del cliente ──
+  if(b.garantia && Number(b.garantia) > 0){
+    const venc = calcVencimiento(b.fechaEntrega || b.fecha, b.garantia);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+    doc.text('Garantia: '+b.garantia+' dias'+( venc !== '—' ? '  |  Vence: '+venc : ''), W/2, y, {align:'center'});
+    y+=5;
+  }
+
+  // ── Footer ──
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(110,110,110);
+  doc.text('Gracias por confiar en nuestro servicio',W/2,y,{align:'center'}); y+=4;
+  doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text('Garantia limitada segun diagnostico tecnico. Danos fisicos, humedad o manipulacion anulan garantia.',W/2,y,{align:'center'}); y+=4;
+  doc.text('Contacto: soporte@zentrixcr.com  |  7239-0652',W/2,y,{align:'center'}); y+=8;
+
+  // ── Firmas ──
+  doc.setDrawColor(160,160,160); doc.setLineWidth(0.3);
+  doc.line(pad,y,pad+55,y);
+  doc.line(W-pad-55,y,W-pad,y);
+  doc.setFontSize(7); doc.setTextColor(130,130,130);
+  doc.text('Firma Cliente',pad,y+4);
+  doc.text('Tecnico Responsable',W-pad-55,y+4);
+
+  doc.save('Boleta-'+b.id+'.pdf');
+  toast('PDF generado: Boleta-'+b.id+'.pdf');
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function resetFiltro(){
+  document.getElementById('d-desde').value='';
+  document.getElementById('d-hasta').value='';
+  renderDashboard();
+}
+
+const MESES = {
+  'enero':0,'febrero':1,'marzo':2,'abril':3,'mayo':4,'junio':5,
+  'julio':6,'agosto':7,'setiembre':8,'septiembre':8,'octubre':9,'noviembre':10,'diciembre':11
+};
+
+function parseFecha(f){
+  if(!f) return null;
+  f = String(f).trim();
+  // ISO format
+  if(f.includes('T')) return new Date(f);
+  // "15 de junio de 2026"
+  const m = f.match(/(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/i);
+  if(m) return new Date(parseInt(m[3]), MESES[m[2].toLowerCase()]||0, parseInt(m[1]));
+  // DD/MM/YYYY
+  const p = f.split('/');
+  if(p.length===3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+  return new Date(f);
+}
+
+function renderDashboard(){
+  const desde=document.getElementById('d-desde')?.value;
+  const hasta=document.getElementById('d-hasta')?.value;
+  let lista=[...boletas];
+  if(desde){
+    const dDesde=new Date(desde+'T00:00:00');
+    lista=lista.filter(b=>{ const d=parseFecha(b.fecha); return d&&d>=dDesde; });
+  }
+  if(hasta){
+    const dHasta=new Date(hasta+'T23:59:59');
+    lista=lista.filter(b=>{ const d=parseFecha(b.fecha); return d&&d<=dHasta; });
+  }
+
+  const total=lista.length;
+  const ingresos=lista.reduce((s,b)=>s+Number(b.costo||0),0);
+  const entregadas=lista.filter(b=>b.estado==='Entregado').length;
+  const pendientes=lista.filter(b=>b.estado!=='Entregado'&&b.estado!=='Resuelto').length;
+  const promIngreso = entregadas>0 ? Math.round(ingresos/entregadas) : 0;
+
+  // Promedio días de reparación
+  const conFecha = lista.filter(b=>b.estado==='Entregado'&&b.fechaRecibido&&b.fechaEntrega);
+  const promDias = conFecha.length>0
+    ? Math.round(conFecha.reduce((s,b)=>{
+        const ini=parseFecha(b.fechaRecibido), fin=parseFecha(b.fechaEntrega);
+        return s+(ini&&fin?Math.abs(fin-ini)/(1000*60*60*24):0);
+      },0)/conFecha.length)
+    : null;
+
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total boletas</div><div class="stat-value">${total}</div><div class="stat-sub">${entregadas} entregadas</div></div>
+    <div class="stat-card"><div class="stat-label">Ingresos totales</div><div class="stat-value" style="font-size:15px">₡${ingresos.toLocaleString('es-CR')}</div><div class="stat-sub">Promedio ₡${promIngreso.toLocaleString('es-CR')}</div></div>
+    <div class="stat-card"><div class="stat-label">En proceso</div><div class="stat-value">${pendientes}</div><div class="stat-sub">sin entregar</div></div>
+    <div class="stat-card"><div class="stat-label">Tiempo promedio</div><div class="stat-value">${promDias!==null?promDias+'d':'—'}</div><div class="stat-sub">por reparación</div></div>
+  `;
+
+  // Barras por estado
+  const maxIng=Math.max(1,...ESTADOS.map(s=>lista.filter(b=>b.estado===s).reduce((sum,b)=>sum+Number(b.costo||0),0)));
+  document.getElementById('dash-bars').innerHTML=ESTADOS.map(s=>{
+    const cnt=lista.filter(b=>b.estado===s);
+    const ing=cnt.reduce((sum,b)=>sum+Number(b.costo||0),0);
+    const pct=Math.round(ing/maxIng*100);
+    return `<div class="bar-row">
+      <span class="bar-label">${s}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <span class="bar-val">₡${ing.toLocaleString('es-CR')} (${cnt.length})</span>
+    </div>`;
+  }).join('');
+
+  // Boletas sin movimiento +5 días
+  const hoy=new Date();
+  const vencidas=boletas.filter(b=>{
+    if(b.estado==='Entregado'||b.estado==='Resuelto') return false;
+    const d=parseFecha(b.fechaRecibido||b.fecha);
+    return d && Math.floor((hoy-d)/(1000*60*60*24))>=5;
+  }).sort((a,b)=>{
+    const da=parseFecha(a.fechaRecibido||a.fecha), db=parseFecha(b.fechaRecibido||b.fecha);
+    return da-db;
+  });
+  document.getElementById('dash-vencidas').innerHTML=vencidas.length?vencidas.map(b=>`
+    <div class="boleta-card" onclick="abrirDetalle('${b.id}')" style="border-color:#f09595">
+      <div class="boleta-header">
+        <span class="boleta-num">${b.id} · ${b.nombre}</span>
+        <span class="${badgeClass(b.estado)}">${b.estado}</span>
+      </div>
+      <div class="boleta-meta"><i class="ti ti-clock" aria-hidden="true"></i> ${diasEnTaller(b.fechaRecibido||b.fecha)} en taller · ${b.marca} ${b.modelo||''}</div>
+    </div>
+  `).join(''):'<div style="font-size:13px;color:var(--text-tertiary);padding:8px 0">No hay boletas con más de 5 días sin moverse</div>';
+
+  // Recientes
+  const recientes=lista.slice().reverse().slice(0,8);
+  document.getElementById('dash-recientes').innerHTML=recientes.length?recientes.map(b=>`
+    <div class="boleta-card" onclick="abrirDetalle('${b.id}')">
+      <div class="boleta-header">
+        <span class="boleta-num">${b.id}</span>
+        <span class="${badgeClass(b.estado)}">${b.estado}</span>
+      </div>
+      <div class="boleta-meta">${b.nombre} · ${b.fecha}${b.costo?` · ₡${Number(b.costo).toLocaleString('es-CR')}`:''}</div>
+    </div>
+  `).join(''):'<div class="empty" style="padding:1rem">Sin boletas en ese rango</div>';
+}
+
+// ── BÚSQUEDA GLOBAL ───────────────────────────────────────
+function busquedaGlobal(){
+  const q = document.getElementById('global-search').value.trim().toLowerCase();
+  const res = document.getElementById('global-results');
+  if(!q){ res.style.display='none'; return; }
+  if(!boletas.length){ cargarBoletas(); return; }
+  const found = boletas.filter(b=>
+    String(b.nombre||'').toLowerCase().includes(q)||
+    String(b.id||'').toLowerCase().includes(q)||
+    String(b.serie||'').toLowerCase().includes(q)||
+    String(b.tel||'').toLowerCase().includes(q)||
+    String(b.marca||'').toLowerCase().includes(q)
+  ).slice(0,6);
+  if(!found.length){
+    res.style.display='block';
+    res.innerHTML='<div style="font-size:13px;color:var(--text-tertiary);padding:8px">Sin resultados</div>';
+    return;
+  }
+  res.style.display='block';
+  res.innerHTML=found.map(b=>`
+    <div onclick="seleccionarResultado('${b.id}')" style="padding:8px 10px;border-radius:var(--radius-md);cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+      <div>
+        <div style="font-size:14px;font-weight:500">${b.id} · ${b.nombre}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${b.marca} ${b.modelo||''} · ${b.fecha}</div>
+      </div>
+      <span class="${badgeClass(b.estado)}">${b.estado}</span>
+    </div>
+  `).join('');
+}
+
+function seleccionarResultado(id){
+  document.getElementById('global-search').value='';
+  document.getElementById('global-results').style.display='none';
+  abrirDetalle(id);
+}
+
+document.addEventListener('click', (e)=>{
+  const res = document.getElementById('global-results');
+  if(res && !res.contains(e.target) && e.target.id!=='global-search'){
+    res.style.display='none';
+  }
+});
+
+// ── IMPRESIÓN DIRECTA ──────────────────────────────────────
+function imprimirBoleta(id){
+  const b=boletas.find(x=>x.id===id);
+  if(!b) return;
+  const win = window.open('','_blank','width=700,height=900');
+  const costo = b.costo&&Number(b.costo)>0 ? '&#8353;'+Number(b.costo).toLocaleString('es-CR') : 'Por definir';
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Boleta ${b.id}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;color:#111;padding:20px;max-width:680px;margin:0 auto}
+    h1{font-size:18px;text-align:center;margin-bottom:4px}
+    .sub{text-align:center;color:#666;font-size:11px;margin-bottom:12px}
+    hr{border:none;border-top:0.5px solid #ccc;margin:10px 0}
+    .row{display:flex;gap:6px;margin-bottom:4px}
+    .lbl{font-weight:bold;min-width:100px;color:#444;font-size:12px}
+    .section{font-weight:bold;font-size:11px;text-transform:uppercase;color:#888;margin:10px 0 4px;letter-spacing:.5px}
+    .txt{font-size:13px;color:#333;line-height:1.5;margin-bottom:6px}
+    .boxes{display:flex;justify-content:space-between;margin:12px 0}
+    .box{border:0.5px solid #ccc;border-radius:4px;text-align:center;padding:6px 10px;min-width:120px}
+    .box-label{font-size:10px;color:#888;margin-bottom:2px}
+    .box-val{font-size:14px;font-weight:bold}
+    .firmas{display:flex;justify-content:space-between;margin-top:24px}
+    .firma{text-align:center;min-width:160px}
+    .firma-line{border-top:0.5px solid #999;padding-top:4px;font-size:11px;color:#888}
+    .footer{text-align:center;font-size:10px;color:#aaa;margin-top:16px}
+    ${b.garantia?'.garantia{text-align:center;font-size:11px;color:#555;margin:6px 0}':''}
+    @media print{body{padding:10px}}
+  </style></head><body>
+  <h1>Zentrix CR</h1>
+  <div class="sub">Servicio Tecnico Especializado &bull; Computadoras &bull; Laptops &bull; Reparacion</div>
+  <div class="sub">soporte@zentrixcr.com &bull; 7239-0652</div>
+  <hr>
+  <div style="display:flex;justify-content:space-between">
+    <div>
+      <div class="section">Cliente</div>
+      <div class="row"><span class="lbl">Nombre</span><span>${b.nombre}</span></div>
+      <div class="row"><span class="lbl">Telefono</span><span>${b.tel}</span></div>
+      ${b.correo?`<div class="row"><span class="lbl">Correo</span><span>${b.correo}</span></div>`:''}
+      <div class="section">Equipo</div>
+      <div class="row"><span class="lbl">Marca/Modelo</span><span>${b.marca} ${b.modelo||''}</span></div>
+      ${b.tipo?`<div class="row"><span class="lbl">Tipo</span><span>${b.tipo}</span></div>`:''}
+      ${b.serie?`<div class="row"><span class="lbl">Serie</span><span>${b.serie}</span></div>`:''}
+    </div>
+    <div style="text-align:right">
+      <div style="font-weight:bold;font-size:15px">${b.id}</div>
+      <div style="font-size:12px;color:#666">${b.fecha}</div>
+    </div>
+  </div>
+  <hr>
+  <div class="section">Problema Reportado</div>
+  <div class="txt">${b.problema}</div>
+  <hr>
+  <div class="section">Diagnostico Tecnico</div>
+  <div class="txt">${b.diagnostico||'Pendiente de diagnostico.'}</div>
+  <hr>
+  <div class="boxes">
+    <div class="box"><div class="box-label">Estado</div><div class="box-val" style="font-size:12px">${b.estado}</div></div>
+    <div class="box"><div class="box-label">Total</div><div class="box-val">${costo}</div></div>
+  </div>
+  ${b.garantia?`<div class="garantia">Garantia: ${b.garantia} dias${b.fechaEntrega?' | Vence: '+calcVencimiento(b.fechaEntrega,b.garantia):''}</div>`:''}
+  <div class="footer">Gracias por confiar en Zentrix CR &bull; soporte@zentrixcr.com &bull; 7239-0652</div>
+  <div class="firmas">
+    <div class="firma"><div class="firma-line">Firma Cliente</div></div>
+    <div class="firma"><div class="firma-line">Tecnico Responsable</div></div>
+  </div>
+  </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 500);
+}
+
+// ── HISTORIAL ─────────────────────────────────────────────
+function parseHistorial(h){
+  if(!h) return [];
+  try { return JSON.parse(h); } catch(e){ return []; }
+}
+
+function renderHistorialHTML(hist){
+  if(!hist||!hist.length) return '<div style="font-size:13px;color:var(--text-tertiary);padding:6px 0">Sin historial</div>';
+  return hist.map((h,i)=>`
+    <div class="historial-item">
+      <div class="historial-dot${i===hist.length-1?' active':''}"></div>
+      <div>
+        <div style="font-weight:500">${h.estado}</div>
+        <div class="historial-fecha">${h.fecha}${h.nota?' · '+h.nota:''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── FOTO ───────────────────────────────────────────────────
+function comprimirImagen(file, maxW, maxH, calidad){
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w=img.width, h=img.height;
+        if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+        if(h>maxH){ w=Math.round(w*maxH/h); h=maxH; }
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function subirFotoSeparada(id, base64){
+  try {
+    // Enviar en chunks si es necesario - usar accion uploadfoto
+    const r = await fetch(API + "?action=uploadfoto&id=" + encodeURIComponent(id) + "&foto=" + encodeURIComponent(base64));
+    const res = await r.json();
+    if(res.ok && res.foto){
+      const b = boletas.find(x=>x.id===id);
+      if(b){ b.foto = res.foto; }
+      return res.foto;
+    }
+  } catch(e){ console.error('Error subiendo foto:', e); }
+  return '';
+}
+
+function subirFoto(id){
+  const input = document.createElement('input');
+  input.type='file'; input.accept='image/*';
+  input.onchange = async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    toast('Comprimiendo imagen...');
+    try {
+      const base64 = await comprimirImagen(file, 800, 800, 0.6);
+      toast('Subiendo foto a Drive...');
+      const url = await subirFotoSeparada(id, base64);
+      const b = boletas.find(x=>x.id===id);
+      if(b){
+        b.foto = url || base64;
+        renderDetalle(b);
+      }
+      toast(url ? '✓ Foto guardada en Drive' : '✓ Foto guardada');
+    } catch(err) {
+      toast('Error al procesar la foto');
+    }
+  };
+  input.click();
+}
+
+// ── VER FOTO ──────────────────────────────────────────────
+function verFoto(id){
+  const b = boletas.find(x=>x.id===id);
+  if(!b||!b.foto) return;
+  const modal = document.getElementById('foto-modal');
+  document.getElementById('foto-modal-img').src = b.foto;
+  modal.style.display='flex';
+}
+
+function cerrarFoto(){
+  document.getElementById('foto-modal').style.display='none';
+  document.getElementById('foto-modal-img').src='';
+}
+
+// ── WHATSAPP ──────────────────────────────────────────────
+function enviarWhatsApp(id){
+  const b=boletas.find(x=>x.id===id);
+  if(!b)return;
+  const tel=String(b.tel||'').replace(/[^0-9]/g,'');
+  cargarConfig();
+  const plantilla = CONFIG.waPlantilla ||
+    'Hola {nombre}, le informamos que su equipo *{marca} {modelo}* (Orden {id}) tiene una actualizacion:\n\n*Estado:* {estado}\n{diagnostico}\n{costo}\n\nGracias por preferirnos. — Zentrix CR\nsoporte@zentrixcr.com | 7239-0652';
+  const msg = plantilla
+    .replace('{nombre}', b.nombre)
+    .replace('{marca}', b.marca)
+    .replace('{modelo}', b.modelo||'')
+    .replace('{id}', b.id)
+    .replace('{estado}', b.estado)
+    .replace('{diagnostico}', b.diagnostico ? '*Diagnostico:* '+b.diagnostico : '')
+    .replace('{costo}', b.costo&&Number(b.costo)>0 ? '*Costo:* C/'+Number(b.costo).toLocaleString('es-CR') : '');
+  const url=`https://wa.me/506${tel}?text=${encodeURIComponent(msg)}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── DÍAS EN TALLER ─────────────────────────────────────────
+function diasEnTaller(fechaRecibido){
+  const d=parseFecha(fechaRecibido);
+  if(!d)return '—';
+  const diff=Math.floor((new Date()-d)/(1000*60*60*24));
+  return diff===0?'hoy':diff===1?'1 día':diff+' días';
+}
+
+function calcVencimiento(fechaEntrega, dias){
+  const d=parseFecha(fechaEntrega);
+  if(!d||!dias)return '—';
+  const venc=new Date(d.getTime()+Number(dias)*24*60*60*1000);
+  return venc.toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'});
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── CONFIGURACIÓN ─────────────────────────────────────────
+let CONFIG = {
+  nombre: 'Zentrix CR',
+  correo: 'soporte@zentrixcr.com',
+  tel: '7239-0652',
+  pass: 'taller2024',
+  waPlantilla: 'Hola {nombre}, le informamos que su equipo *{marca} {modelo}* (Orden {id}) tiene una actualizacion:\n\n*Estado:* {estado}\n{diagnostico}\n{costo}\n\nGracias por preferirnos. — Zentrix CR\nsoporte@zentrixcr.com | 7239-0652'
+};
+
+function cargarConfig(){
+  try {
+    const c = localStorage.getItem('zentrix_config');
+    if(c) CONFIG = {...CONFIG, ...JSON.parse(c)};
+  } catch(e){}
+}
+
+function abrirConfiguracion(){
+  cargarConfig();
+  document.getElementById('cfg-nombre').value = CONFIG.nombre;
+  document.getElementById('cfg-correo').value = CONFIG.correo;
+  document.getElementById('cfg-tel').value = CONFIG.tel;
+  document.getElementById('cfg-wa').value = CONFIG.waPlantilla;
+  document.getElementById('cfg-pass1').value = '';
+  document.getElementById('cfg-pass2').value = '';
+  document.getElementById('config-overlay').style.display='flex';
+}
+
+function cerrarConfiguracion(){
+  document.getElementById('config-overlay').style.display='none';
+}
+
+function guardarConfiguracion(){
+  const p1 = document.getElementById('cfg-pass1').value;
+  const p2 = document.getElementById('cfg-pass2').value;
+  if(p1 && p1!==p2){ toast('Las contraseñas no coinciden'); return; }
+  CONFIG.nombre = document.getElementById('cfg-nombre').value.trim() || CONFIG.nombre;
+  CONFIG.correo = document.getElementById('cfg-correo').value.trim();
+  CONFIG.tel = document.getElementById('cfg-tel').value.trim();
+  CONFIG.waPlantilla = document.getElementById('cfg-wa').value;
+  if(p1) CONFIG.pass = p1;
+  try { localStorage.setItem('zentrix_config', JSON.stringify(CONFIG)); } catch(e){}
+  cerrarConfiguracion();
+  toast('✓ Configuración guardada');
+}
+
+// ── EXPORTAR ───────────────────────────────────────────────
+function exportarCSV(){
+  const headers = ['ID','Fecha','Nombre','Teléfono','Correo','Marca','Modelo','Serie','Tipo','Problema','Diagnóstico','Estado','Costo','Garantía','Notas','Fecha Recibido','Fecha Entrega'];
+  const rows = boletas.map(b=>[
+    b.id, b.fecha, b.nombre, b.tel, b.correo, b.marca, b.modelo,
+    b.serie, b.tipo, b.problema, b.diagnostico, b.estado, b.costo,
+    b.garantia, b.notas, b.fechaRecibido, b.fechaEntrega
+  ].map(v=>'"'+(String(v||'').replace(/"/g,'""'))+'"').join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Zentrix-CR-Boletas-'+new Date().toLocaleDateString('es-CR').replace(/\//g,'-')+'.csv';
+  a.click();
+  toast('CSV exportado');
+}
+
+function exportarExcel(){
+  // Export as CSV with Excel-compatible format
+  exportarCSV();
+  toast('Abrí el CSV con Excel — es compatible');
+}
+
+// ── STORAGE HELPER ────────────────────────────────────────
+const _store = {};
+function localStorage_get(k){ try{ return localStorage.getItem(k); }catch(e){ return _store[k]||null; } }
+function localStorage_set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ _store[k]=v; } }
+
+// ── LOGIN ─────────────────────────────────────────────────
+function login(){
+  const u = document.getElementById('l-user').value.trim().toLowerCase();
+  const p = document.getElementById('l-pass').value.trim();
+  const err = document.getElementById('login-error');
+  cargarConfig();
+  if(u === 'admin' && p === CONFIG.pass){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-screen').style.display='block';
+    err.style.display='none';
+    cargarBoletas();
+  } else {
+    err.style.display='block';
+    document.getElementById('l-pass').value='';
+  }
+}
+
+function logout(){
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('l-user').value='';
+  document.getElementById('l-pass').value='';
+}
+</script>
+</div><!-- /app-screen -->
+</body>
+</html>
